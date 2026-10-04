@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<title>Memoria GC — Entrenamiento</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111827;background:#f3f4f6}
+*{box-sizing:border-box}body{margin:0;min-height:100vh}
+main{max-width:760px;margin:auto;padding:18px 14px 36px}
+h1{font-size:27px;margin:4px 0 5px}.sub{color:#6b7280;margin:0 0 18px}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:17px;margin:12px 0}
+label{display:block;font-weight:700;font-size:14px;margin:12px 0 7px}
+select,button{width:100%;min-height:48px;border-radius:12px;border:1px solid #d1d5db;font-size:16px;padding:10px 12px;background:#fff}
+button{font-weight:750;cursor:pointer}.primary{background:#111827;color:#fff;border-color:#111827}
+button:disabled{opacity:.55;cursor:not-allowed}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.timer{font-size:25px;font-weight:850;font-variant-numeric:tabular-nums}
+.progress{color:#6b7280;font-size:14px;font-weight:700}
+.people{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.person{border:1px solid #e5e7eb;border-radius:15px;padding:13px;background:#fafafa}
+.person strong{display:block;font-size:17px;margin-bottom:7px}
+.person div{font-size:14px;margin:4px 0}.person b{color:#374151}
+.question{font-size:21px;font-weight:800;line-height:1.3;margin:10px 0 18px}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.answer{text-align:left;background:#fff}
+.answer.correct{background:#dcfce7;border-color:#22c55e}
+.answer.wrong{background:#fee2e2;border-color:#ef4444}
+.feedback{margin-top:13px;padding:12px;border-radius:12px;font-weight:700;background:#f3f4f6}
+.hidden{display:none!important}
+.score{font-size:46px;font-weight:900;text-align:center;margin:5px 0}
+.center{text-align:center}
+.small{font-size:13px;color:#6b7280}
+.badge{display:inline-block;background:#eef2ff;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:800;margin-bottom:8px}
+@media(max-width:560px){main{padding:14px 11px 28px}.people,.answers,.row{grid-template-columns:1fr}.person{padding:12px}.question{font-size:20px}}
+</style>
+</head>
+<body>
+<main>
+<section id="home">
+  <h1>🧠 Memoria GC</h1>
+  <p class="sub">Entrena para recordar personas, como en una prueba real.</p>
+  <div class="card">
+    <label for="count">Personas</label>
+    <select id="count">
+      <option value="5">5 personas</option>
+      <option value="10">10 personas</option>
+      <option value="15">15 personas</option>
+      <option value="20">20 personas</option>
+      <option value="25" selected>25 personas</option>
+    </select>
+    <label for="time">Tiempo para memorizar</label>
+    <select id="time">
+      <option value="30">30 segundos</option>
+      <option value="60">1 minuto</option>
+      <option value="120">2 minutos</option>
+      <option value="180" selected>3 minutos</option>
+      <option value="300">5 minutos</option>
+      <option value="0">Sin límite</option>
+    </select>
+    <label for="questions">Preguntas</label>
+    <select id="questions">
+      <option value="10">10 preguntas</option>
+      <option value="20" selected>20 preguntas</option>
+      <option value="30">30 preguntas</option>
+      <option value="40">40 preguntas</option>
+    </select>
+    <button id="start" class="primary" type="button" style="margin-top:16px">EMPEZAR</button>
+  </div>
+  <div class="card">
+    <strong>Modo recomendado para empezar</strong>
+    <p class="small">5 personas · 2 minutos · 20 preguntas. Cuando superes el 90%, sube a 10 y luego a 15, 20 y 25.</p>
+  </div>
+</section>
+
+<section id="memory" class="hidden">
+  <div class="top">
+    <div><span class="badge">FASE 1 · MEMORIZAR</span><div class="small">No hagas capturas ni apuntes.</div></div>
+    <div id="timer" class="timer">02:00</div>
+  </div>
+  <div id="people" class="people"></div>
+  <button id="finish" class="primary" type="button" style="margin-top:14px">TERMINAR Y EMPEZAR PREGUNTAS</button>
+</section>
+
+<section id="quiz" class="hidden">
+  <div class="top"><span id="progress" class="progress"></span><span id="points" class="progress">0 puntos</span></div>
+  <div class="card">
+    <div class="badge">FASE 2 · RECUERDO</div>
+    <div id="question" class="question"></div>
+    <div id="answers" class="answers"></div>
+    <div id="feedback" class="feedback hidden"></div>
+    <button id="next" class="primary hidden" style="margin-top:13px">SIGUIENTE</button>
+  </div>
+</section>
+
+<section id="result" class="hidden">
+  <div class="card center">
+    <div class="badge">RESULTADO</div>
+    <div id="score" class="score">0%</div>
+    <div id="detail"></div>
+    <button id="again" class="primary" type="button" style="margin-top:18px">NUEVA PARTIDA</button>
+  </div>
+</section>
+</main>
+
+<script>
+const NAMES=[
+"Laura Martín","Ahmed Benali","Carlos Méndez","Sophie Dubois","Miguel Santos",
+"Elena Petrova","David Kim","Giulia Rossi","Javier Ortega","Nadia Ivanova",
+"Pablo Navarro","Amina Haddad","Lucía Romero","Thomas Weber","Diego Pereira",
+"Marta Silva","Omar Khalil","Clara Molina","Andrés Torres","Émilie Laurent",
+"Sergio Vidal","Ana Costa","Daniel Popescu","Sara Moreno","Hugo Ferrer",
+"Irene García","Marco Bianchi","Youssef Amrani","Paula León","Alexei Volkov",
+"Raquel Sanz","Bruno Martins","Noa Sánchez","Liam O'Connor","Valeria Conti",
+"Rubén Castro","Beatriz Moreno","Nicolás Ruiz","Julia Ferrer","Karim Haddad"
+];
+const NATIONALITIES=["española","marroquí","colombiana","francesa","portuguesa","búlgara","surcoreana","italiana","argentina","rusa","alemana","libanesa","peruana","chilena","brasileña","egipcia","rumana","irlandesa"];
+const PROFESSIONS=["enfermera","electricista","abogado","diseñadora gráfica","pescador","arquitecta","programador","farmacéutica","profesor","periodista","mecánico","traductora","fisioterapeuta","ingeniero","cocinero","veterinaria","comercial","fotógrafa","bombero","psicóloga","policía","administrativa","médico","dependienta","entrenador","maestra","contable","fontanero","informático","panadero"];
+const STREETS=["Real","Andalucía","Luna","Sol","Marina","Olivo","Constitución","Granada","Cádiz","Sevilla","Alameda","Mayor","Victoria","Libertad","Colón","Naranjos","Azahar","España","Málaga","Jerez","Ronda","San Fernando","Huelva","Velázquez","Goya","Cervantes"];
+let people=[],questions=[],qi=0,score=0,timer=null,remaining=0;
+
+const $=id=>document.getElementById(id);
+function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function unique(a){return [...new Set(a)]}
+function show(id){["home","memory","quiz","result"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
+function fmt(s){if(s===0)return "∞";return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}
+
+function createPeople(n){
+  return shuffle(NAMES).slice(0,n).map((name,i)=>({
+    name,
+    age:20+Math.floor(Math.random()*41),
+    sex:Math.random()<.5?"Mujer":"Hombre",
+    nationality:NATIONALITIES[Math.floor(Math.random()*NATIONALITIES.length)],
+    profession:PROFESSIONS[Math.floor(Math.random()*PROFESSIONS.length)],
+    address:"C/ "+STREETS[Math.floor(Math.random()*STREETS.length)]+", "+(3+Math.floor(Math.random()*118))
+  }));
+}
+function renderPeople(){
+  $("people").innerHTML=people.map((p,i)=>`
+  <article class="person">
+    <strong>${i+1}. ${p.name}</strong>
+    <div><b>Edad:</b> ${p.age}</div>
+    <div><b>Sexo:</b> ${p.sex}</div>
+    <div><b>Nacionalidad:</b> ${p.nationality}</div>
+    <div><b>Profesión:</b> ${p.profession}</div>
+    <div><b>Dirección:</b> ${p.address}</div>
+  </article>`).join("");
+}
+function startGame(){
+  clearInterval(timer);
+  people=createPeople(Number($("count").value));
+  renderPeople();show("memory");
+  remaining=Number($("time").value);
+  $("timer").textContent=fmt(remaining);
+  if(remaining>0){
+    timer=setInterval(()=>{remaining--; $("timer").textContent=fmt(Math.max(remaining,0));if(remaining<=0){clearInterval(timer);beginQuiz()}},1000);
+  }
+}
+function makeQuestions(){
+  const q=[];
+  for(const p of people){
+    q.push({text:`¿Qué nombre tenía la persona de ${p.address}?`,correct:p.name,options:people.map(x=>x.name)});
+    q.push({text:`¿Qué edad tenía ${p.name}?`,correct:String(p.age),options:people.map(x=>String(x.age))});
+    q.push({text:`¿Qué sexo tenía ${p.name}?`,correct:p.sex,options:["Hombre","Mujer"]});
+    q.push({text:`¿Qué nacionalidad tenía ${p.name}?`,correct:p.nationality,options:people.map(x=>x.nationality)});
+    q.push({text:`¿Cuál era la profesión de ${p.name}?`,correct:p.profession,options:people.map(x=>x.profession)});
+    q.push({text:`¿Dónde vivía ${p.name}?`,correct:p.address,options:people.map(x=>x.address)});
+  }
+  return shuffle(q).slice(0,Math.min(Number($("questions").value),q.length));
+}
+function beginQuiz(){
+  clearInterval(timer);questions=makeQuestions();qi=0;score=0;show("quiz");renderQuestion();
+}
+function renderQuestion(){
+  const q=questions[qi];
+  $("progress").textContent=`Pregunta ${qi+1} / ${questions.length}`;
+  $("points").textContent=`${score} puntos`;
+  $("question").textContent=q.text;
+  $("feedback").classList.add("hidden");$("next").classList.add("hidden");
+  let opts=shuffle(unique(q.options)).slice(0,4);
+  if(!opts.includes(q.correct)){opts[Math.floor(Math.random()*opts.length)]=q.correct}
+  $("answers").innerHTML=shuffle(opts).map(o=>`<button class="answer" type="button">${o}</button>`).join("");
+  $("answers").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>answer(b,q)));
+}
+function answer(btn,q){
+  $("answers").querySelectorAll("button").forEach(b=>b.disabled=true);
+  const ok=btn.textContent===q.correct;
+  if(ok){score++;btn.classList.add("correct")}else{
+    btn.classList.add("wrong");
+    [...$("answers").children].find(b=>b.textContent===q.correct)?.classList.add("correct");
+  }
+  $("feedback").textContent=ok?"✓ Correcto":"✗ Incorrecto · Respuesta: "+q.correct;
+  $("feedback").classList.remove("hidden");$("next").classList.remove("hidden");
+  $("points").textContent=`${score} puntos`;
+}
+function next(){
+  qi++;
+  if(qi>=questions.length){
+    const pct=Math.round(score/questions.length*100);
+    show("result");$("score").textContent=pct+"%";
+    $("detail").textContent=`${score} de ${questions.length} respuestas correctas.`;
+  }else renderQuestion();
+}
+$("start").onclick=startGame;
+$("finish").onclick=beginQuiz;
+$("next").onclick=next;
+$("again").onclick=()=>show("home");
+</script>
+
+<script>
+(function(){
+  window.addEventListener("error", function(e){
+    var el=document.getElementById("mobile-error");
+    if(el){el.textContent="Error de ejecución. Abre este archivo directamente con Chrome o Safari, no con el visor de archivos.";el.classList.remove("hidden");}
+  });
+  var s=document.createElement("div");
+  s.id="mobile-error";s.className="hidden";
+  s.style.cssText="position:fixed;left:10px;right:10px;bottom:10px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:12px;padding:12px;font-size:13px;z-index:9999";
+  s.textContent="";
+  document.body.appendChild(s);
+})();
+</script>
+</body>
+</html>
